@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../app/theme.dart';
 
@@ -109,7 +112,204 @@ class _HomeScreenState extends State<HomeScreen> {
             fontWeight: FontWeight.w500,
           ),
         ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: _showCurrentLocation,
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              Icons.my_location,
+              color: Colors.indigo[400],
+              size: 18,
+            ),
+          ),
+        ),
       ],
+    );
+  }
+
+  Future<void> _showCurrentLocation() async {
+    // 로딩 다이얼로그 표시
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      // 권한 확인
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (!mounted) return;
+          Navigator.pop(context);
+          _showLocationError('위치 권한이 거부되었습니다.');
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        Navigator.pop(context);
+        _showLocationError('위치 권한이 영구적으로 거부되었습니다.\n설정에서 권한을 허용해주세요.');
+        return;
+      }
+
+      // 위치 서비스 활성화 확인
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (!mounted) return;
+        Navigator.pop(context);
+        _showLocationError('위치 서비스가 비활성화되어 있습니다.');
+        return;
+      }
+
+      // 현재 위치 획득
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context); // 로딩 닫기
+
+      // 위치 정보 표시 (지도 포함)
+      _showMapDialog(position);
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      _showLocationError('위치를 가져올 수 없습니다.');
+    }
+  }
+
+  void _showMapDialog(Position position) {
+    final currentLocation = LatLng(position.latitude, position.longitude);
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 헤더
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.location_on, color: Colors.white),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '현재 위치',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Icon(Icons.close, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            // 지도
+            SizedBox(
+              height: 250,
+              child: FlutterMap(
+                options: MapOptions(
+                  initialCenter: currentLocation,
+                  initialZoom: 16,
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.subwayguide.smart_subway_guide',
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: currentLocation,
+                        width: 40,
+                        height: 40,
+                        child: const Icon(
+                          Icons.location_on,
+                          color: Colors.red,
+                          size: 40,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // 위치 정보
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.gps_fixed, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      Text(
+                        '위도: ${position.latitude.toStringAsFixed(6)}',
+                        style: TextStyle(color: Colors.grey[700]),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.gps_fixed, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      Text(
+                        '경도: ${position.longitude.toStringAsFixed(6)}',
+                        style: TextStyle(color: Colors.grey[700]),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '정확도: ${position.accuracy.toStringAsFixed(0)}m',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLocationError(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('위치 오류'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
     );
   }
 
