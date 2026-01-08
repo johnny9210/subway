@@ -1,0 +1,664 @@
+import 'package:flutter/material.dart';
+
+import '../../../../app/theme.dart';
+
+class TrainArrivalScreen extends StatefulWidget {
+  final String? stationName;
+
+  const TrainArrivalScreen({super.key, this.stationName});
+
+  @override
+  State<TrainArrivalScreen> createState() => _TrainArrivalScreenState();
+}
+
+class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
+  late String selectedStation;
+  int selectedTrainIndex = 1;
+  int _selectedNavIndex = 0;
+
+  final List<String> stations = ['강남역', '신도림역', '홍대입구역', '시청역'];
+
+  final List<TrainInfo> trains = [
+    TrainInfo(
+      lineNumber: 2,
+      lineColor: AppTheme.accentGreen,
+      direction: '성수행',
+      status: '환승 불가',
+      statusColor: AppTheme.accentRed,
+      arrivalTime: '2분 0초',
+      arrivalSeconds: 120,
+      isRecommended: false,
+    ),
+    TrainInfo(
+      lineNumber: 2,
+      lineColor: AppTheme.accentGreen,
+      direction: '성수행',
+      status: '여유 편성',
+      statusColor: AppTheme.accentGreen,
+      arrivalTime: '7분 30초',
+      arrivalSeconds: 450,
+      isRecommended: true,
+      recommendMessage: '4분 43초 뒤에 승강장에 열차가 도착합니다.',
+    ),
+    TrainInfo(
+      lineNumber: 2,
+      lineColor: AppTheme.accentGreen,
+      direction: '성수행',
+      status: '매우 혼잡',
+      statusColor: AppTheme.boardingWarning,
+      arrivalTime: '14분 0초',
+      arrivalSeconds: 840,
+      isRecommended: false,
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    selectedStation = widget.stationName ?? '강남역';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildAppBar(),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
+                    _buildLocationHeader(),
+                    const SizedBox(height: 12),
+                    _buildStationSelector(),
+                    const SizedBox(height: 20),
+                    _buildPaymentDetectedCard(),
+                    const SizedBox(height: 12),
+                    _buildEstimatedTimeCard(),
+                    const SizedBox(height: 24),
+                    _buildTrainListHeader(),
+                    const SizedBox(height: 12),
+                    _buildTrainList(),
+                    const SizedBox(height: 20),
+                    _buildStartGuidanceButton(),
+                    const SizedBox(height: 12),
+                    _buildSimulationButton(),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ),
+            _buildBottomNavBar(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      color: Colors.white,
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios, size: 20),
+            onPressed: () => Navigator.pop(context),
+            color: AppTheme.textPrimary,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'METRO-WAY',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo[700],
+                    letterSpacing: 1,
+                  ),
+                ),
+                Text(
+                  'PLATFORM GUIDE V1.2',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey[500],
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Row(
+            children: [
+              IconButton(
+                icon: Icon(Icons.notifications_outlined, color: Colors.grey[600]),
+                onPressed: () {},
+              ),
+              IconButton(
+                icon: Icon(Icons.settings_outlined, color: Colors.grey[600]),
+                onPressed: () => Navigator.pushNamed(context, '/settings'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationHeader() {
+    return Row(
+      children: [
+        Icon(Icons.location_on, color: Colors.grey[500], size: 18),
+        const SizedBox(width: 6),
+        Text(
+          '현재 시뮬레이션 위치',
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStationSelector() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: stations.map((station) {
+        final isSelected = selectedStation == station;
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              selectedStation = station;
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected ? AppTheme.primaryColor : Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!,
+              ),
+            ),
+            child: Text(
+              station,
+              style: TextStyle(
+                fontSize: 13,
+                color: isSelected ? Colors.white : Colors.grey[700],
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildPaymentDetectedCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppTheme.accentGreen.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_circle,
+              color: AppTheme.accentGreen,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '결제 감지됨',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '이동 시간 측정 중...',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'T패스 하차 11:20',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEstimatedTimeCard() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '승강장까지 예상 시간',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+          const Text(
+            '2분 47초',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrainListHeader() {
+    return Row(
+      children: [
+        Icon(Icons.access_time, color: Colors.grey[500], size: 18),
+        const SizedBox(width: 6),
+        Text(
+          '실시간 열차 현황',
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTrainList() {
+    return Column(
+      children: trains.asMap().entries.map((entry) {
+        final index = entry.key;
+        final train = entry.value;
+        final isSelected = selectedTrainIndex == index;
+
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              selectedTrainIndex = index;
+            });
+          },
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+                width: isSelected ? 2 : 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isSelected
+                      ? AppTheme.primaryColor.withValues(alpha: 0.1)
+                      : Colors.black.withValues(alpha: 0.03),
+                  blurRadius: isSelected ? 12 : 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: train.lineColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${train.lineNumber}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            train.direction,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: train.statusColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                train.status,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          train.arrivalTime,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected
+                                ? AppTheme.primaryColor
+                                : AppTheme.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          '도착 예정',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[400],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                if (isSelected && train.isRecommended) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F6FA),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            train.recommendMessage!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            '가장빠른 도착',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildStartGuidanceButton() {
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: AppTheme.primaryGradient,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryColor.withValues(alpha: 0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.pushNamed(context, '/boarding');
+          },
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.directions_walk,
+                color: Colors.white,
+                size: 22,
+              ),
+              SizedBox(width: 10),
+              Text(
+                '탑승 안내 시작',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSimulationButton() {
+    return Container(
+      width: double.infinity,
+      height: 52,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.primaryColor),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {},
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.sensors,
+                color: AppTheme.primaryColor,
+                size: 20,
+              ),
+              SizedBox(width: 8),
+              Text(
+                '승강장 비콘 감지 시뮬레이션',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(0, Icons.train_outlined, '도착정보'),
+              _buildNavItem(1, Icons.map_outlined, '역내지도'),
+              _buildNavItem(2, Icons.person_outline, '내정보'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, String label) {
+    final isSelected = _selectedNavIndex == index;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedNavIndex = index;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? AppTheme.primaryColor : Colors.grey[400],
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: isSelected ? AppTheme.primaryColor : Colors.grey[400],
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class TrainInfo {
+  final int lineNumber;
+  final Color lineColor;
+  final String direction;
+  final String status;
+  final Color statusColor;
+  final String arrivalTime;
+  final int arrivalSeconds;
+  final bool isRecommended;
+  final String? recommendMessage;
+
+  TrainInfo({
+    required this.lineNumber,
+    required this.lineColor,
+    required this.direction,
+    required this.status,
+    required this.statusColor,
+    required this.arrivalTime,
+    required this.arrivalSeconds,
+    this.isRecommended = false,
+    this.recommendMessage,
+  });
+}

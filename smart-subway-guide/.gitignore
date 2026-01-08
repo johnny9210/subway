@@ -1,0 +1,84 @@
+# =========================
+# General
+# =========================
+.DS_Store
+.idea/
+.vscode/
+*.log
+*.tmp
+*.temp
+
+# =========================
+# Environment
+# =========================
+.env
+.env.local
+.env.*.local
+*.env
+
+# =========================
+# Flutter / Dart
+# =========================
+apps/mobile/.dart_tool/
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+apps/mobile/.packages
+apps/mobile/build/
+apps/mobile/.pub-cache/
+apps/mobile/.pub/
+apps/mobile/*.iml
+apps/mobile/.metadata
+apps/mobile/coverage/
+
+# Android
+apps/mobile/android/.gradle/
+apps/mobile/android/local.properties
+apps/mobile/android/*.jks
+apps/mobile/android/key.properties
+
+# iOS
+apps/mobile/ios/Pods/
+apps/mobile/ios/.symlinks/
+apps/mobile/ios/Flutter/Flutter.framework
+apps/mobile/ios/Flutter/Flutter.podspec
+apps/mobile/ios/Runner.xcworkspace/xcshareddata/
+apps/mobile/ios/Flutter/Generated.xcconfig
+
+# =========================
+# Python / FastAPI
+# =========================
+apps/backend/__pycache__/
+apps/backend/**/__pycache__/
+apps/backend/*.py[cod]
+apps/backend/*$py.class
+apps/backend/.Python
+apps/backend/venv/
+apps/backend/.venv/
+apps/backend/env/
+apps/backend/.pytest_cache/
+apps/backend/.coverage
+apps/backend/htmlcov/
+apps/backend/*.egg-info/
+apps/backend/dist/
+apps/backend/build/
+apps/backend/.mypy_cache/
+apps/backend/.ruff_cache/
+
+# =========================
+# Database
+# =========================
+*.db
+*.sqlite
+*.sqlite3
+
+# =========================
+# Docker
+# =========================
+infrastructure/docker/data/
+
+# =========================
+# IDE
+# =========================
+*.swp
+*.swo
+*~

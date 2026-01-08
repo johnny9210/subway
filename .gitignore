@@ -1,0 +1,32 @@
+# Environment variables
+*.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Node
+node_modules/
+
+# Flutter
+.dart_tool/
+.packages
+build/
+*.iml
+
+# HWP files (Korean word processor - may contain sensitive info)
+*.hwp
