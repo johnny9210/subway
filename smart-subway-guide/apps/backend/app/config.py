@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     PUBLIC_API_KEY: str = ""
     PUBLIC_API_BASE_URL: str = "http://swopenAPI.seoul.go.kr/api/subway"
 
+    # 카카오 API
+    KAKAO_REST_API_KEY: str = ""
+
     # Cache TTL (seconds)
     ARRIVAL_CACHE_TTL: int = 30
     TRAVEL_AVG_CACHE_TTL: int = 3600

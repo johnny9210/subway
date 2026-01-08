@@ -17,6 +17,7 @@ dependencies:
   # 네트워크
   dio: ^5.4.0
   retrofit: ^4.0.3
+  http: ^1.2.0
 
   # 로컬 저장소
   hive: ^2.2.3

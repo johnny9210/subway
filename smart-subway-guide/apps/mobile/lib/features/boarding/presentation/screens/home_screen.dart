@@ -4,6 +4,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../../app/theme.dart';
+import '../../../stations/data/station_repository.dart';
+import '../../../stations/domain/station_model.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,8 +17,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String selectedStation = '강남역';
   int _selectedNavIndex = 0;
+  bool _isLoadingNearby = false;
 
-  final List<String> stations = ['강남역', '신도림역', '왕십리역', '시청역'];
+  List<NearbyStation> _nearbyStations = [];
+  List<String> stations = ['강남역', '신도림역', '왕십리역', '시청역'];
 
   @override
   Widget build(BuildContext context) {
@@ -104,15 +108,17 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Icon(Icons.location_on, color: Colors.amber[600], size: 20),
         const SizedBox(width: 6),
-        Text(
-          '현재 시뮬레이션 위치',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey[700],
-            fontWeight: FontWeight.w500,
+        Expanded(
+          child: Text(
+            '현재 시뮬레이션 위치',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
-        const SizedBox(width: 8),
+        // 위치 확인 버튼
         GestureDetector(
           onTap: _showCurrentLocation,
           child: Container(
@@ -128,8 +134,114 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ),
+        const SizedBox(width: 8),
+        // 가까운 역 찾기 버튼
+        GestureDetector(
+          onTap: _isLoadingNearby ? null : _findNearbyStations,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: _isLoadingNearby
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.near_me, color: Colors.white, size: 14),
+                      SizedBox(width: 4),
+                      Text(
+                        '가까운 역',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
       ],
     );
+  }
+
+  /// 현재 위치에서 가까운 역 찾기
+  Future<void> _findNearbyStations() async {
+    setState(() => _isLoadingNearby = true);
+
+    try {
+      // 권한 확인
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (!mounted) return;
+          _showLocationError('위치 권한이 거부되었습니다.');
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        _showLocationError('위치 권한이 영구적으로 거부되었습니다.');
+        return;
+      }
+
+      // 위치 서비스 확인
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (!mounted) return;
+        _showLocationError('위치 서비스가 비활성화되어 있습니다.');
+        return;
+      }
+
+      // 현재 위치 획득
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      // 가까운 역 조회
+      final nearbyStations = await StationRepository.fetchNearbyStations(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        limit: 5,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _nearbyStations = nearbyStations;
+        stations = nearbyStations.map((s) => s.stationName).toList();
+        if (stations.isNotEmpty) {
+          selectedStation = stations.first;
+        }
+      });
+
+      // 결과 스낵바 표시
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('가장 가까운 역: ${stations.first} (${nearbyStations.first.distanceText})'),
+          backgroundColor: AppTheme.primaryColor,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showLocationError('위치를 가져올 수 없습니다.');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingNearby = false);
+      }
+    }
   }
 
   Future<void> _showCurrentLocation() async {
@@ -317,8 +429,17 @@ class _HomeScreenState extends State<HomeScreen> {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: stations.map((station) {
+      children: stations.asMap().entries.map((entry) {
+        final index = entry.key;
+        final station = entry.value;
         final isSelected = selectedStation == station;
+
+        // 가까운 역 정보가 있으면 거리 표시
+        String? distanceText;
+        if (_nearbyStations.isNotEmpty && index < _nearbyStations.length) {
+          distanceText = _nearbyStations[index].distanceText;
+        }
+
         return GestureDetector(
           onTap: () {
             setState(() {
@@ -343,13 +464,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     ]
                   : null,
             ),
-            child: Text(
-              station,
-              style: TextStyle(
-                fontSize: 14,
-                color: isSelected ? Colors.white : Colors.grey[700],
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  station,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isSelected ? Colors.white : Colors.grey[700],
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+                if (distanceText != null) ...[
+                  const SizedBox(width: 4),
+                  Text(
+                    distanceText,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isSelected
+                          ? Colors.white.withValues(alpha: 0.8)
+                          : Colors.grey[500],
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         );
