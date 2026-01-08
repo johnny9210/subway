@@ -56,6 +56,7 @@ async def search_nearby_subway_stations(
             data = response.json()
 
             stations = []
+
             for place in data.get("documents", []):
                 # 카카오 응답에서 역 정보 추출
                 station_name = place.get("place_name", "")
@@ -66,9 +67,12 @@ async def search_nearby_subway_stations(
                 # 역명 정리 (호선 정보 제거)
                 clean_name = clean_station_name(station_name)
 
+                # 역명 + 호선 표시 (예: "군자역 5호선")
+                display_name = f"{clean_name} {line}호선" if line.isdigit() else f"{clean_name} {line}"
+
                 station = NearbyStation(
                     station_id=place.get("id", ""),
-                    station_name=clean_name,
+                    station_name=display_name,
                     line=line,
                     latitude=float(place.get("y", 0)),
                     longitude=float(place.get("x", 0)),

@@ -106,31 +106,30 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildLocationHeader() {
     return Row(
       children: [
-        Icon(Icons.location_on, color: Colors.amber[600], size: 20),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            '현재 시뮬레이션 위치',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[700],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        // 위치 확인 버튼
+        // 내 위치 버튼
         GestureDetector(
           onTap: _showCurrentLocation,
           child: Container(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(6),
+              color: Colors.amber[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber[200]!),
             ),
-            child: Icon(
-              Icons.my_location,
-              color: Colors.indigo[400],
-              size: 18,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.location_on, color: Colors.amber[600], size: 16),
+                const SizedBox(width: 4),
+                Text(
+                  '내 위치',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.amber[800],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -139,7 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
         GestureDetector(
           onTap: _isLoadingNearby ? null : _findNearbyStations,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: AppTheme.primaryColor,
               borderRadius: BorderRadius.circular(12),
@@ -597,10 +596,51 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// 거리(미터)를 도보 시간으로 변환 (4.2 km/h 기준)
+  String _calculateWalkingTime(double meters) {
+    const walkingSpeedMeterPerMin = 70.0; // 4.2 km/h = 70 m/min
+    final minutes = meters / walkingSpeedMeterPerMin;
+
+    if (minutes < 1) {
+      return '1분 미만';
+    } else if (minutes < 60) {
+      return '${minutes.round()}분';
+    } else {
+      final hours = (minutes / 60).floor();
+      final mins = (minutes % 60).round();
+      return '$hours시간 $mins분';
+    }
+  }
+
+  /// 거리(미터)를 자동차 시간으로 변환 (30 km/h 기준)
+  String _calculateDrivingTime(double meters) {
+    const drivingSpeedMeterPerMin = 500.0; // 30 km/h = 500 m/min
+    final minutes = meters / drivingSpeedMeterPerMin;
+
+    if (minutes < 1) {
+      final seconds = (minutes * 60).round();
+      return '$seconds초';
+    } else {
+      return '${minutes.round()}분';
+    }
+  }
+
   Widget _buildInfoCards() {
+    // 선택된 역 정보 찾기
+    final hasNearbyData = _nearbyStations.isNotEmpty;
+    NearbyStation? selectedStationData;
+    if (hasNearbyData) {
+      selectedStationData = _nearbyStations.firstWhere(
+        (s) => s.stationName == selectedStation,
+        orElse: () => _nearbyStations.first,
+      );
+    }
+    final selectedDistance = selectedStationData?.distanceMeters ?? 0.0;
+    final selectedDistanceText = selectedStationData?.distanceText ?? '';
+
     return Row(
       children: [
-        // 출근 소요 시간 카드
+        // 도보 소요 시간 카드
         Expanded(
           child: Container(
             padding: const EdgeInsets.all(20),
@@ -625,34 +665,42 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                    Icons.flash_on,
+                    Icons.directions_walk,
                     color: Colors.amber[600],
                     size: 20,
                   ),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '출근 소요 시간',
+                  '도보',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[500],
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  '2분 47초',
-                  style: TextStyle(
+                Text(
+                  hasNearbyData ? _calculateWalkingTime(selectedDistance) : '-',
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.textPrimary,
                   ),
                 ),
+                if (hasNearbyData)
+                  Text(
+                    selectedDistanceText,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[400],
+                    ),
+                  ),
               ],
             ),
           ),
         ),
         const SizedBox(width: 12),
-        // 현재 역 카드
+        // 자동차 소요 시간 카드
         Expanded(
           child: Container(
             padding: const EdgeInsets.all(20),
@@ -677,14 +725,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                    Icons.subway,
+                    Icons.directions_car,
                     color: Colors.indigo[400],
                     size: 20,
                   ),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '현재 역',
+                  '자동차',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[500],
@@ -692,13 +740,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  selectedStation,
+                  hasNearbyData ? _calculateDrivingTime(selectedDistance) : '-',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.textPrimary,
                   ),
                 ),
+                if (hasNearbyData)
+                  Text(
+                    selectedStation,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[400],
+                    ),
+                  ),
               ],
             ),
           ),
