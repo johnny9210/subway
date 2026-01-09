@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme.dart';
+import '../../../arrivals/data/arrival_repository.dart';
+import '../../../arrivals/domain/arrival_model.dart';
 
 class TrainArrivalScreen extends StatefulWidget {
   final String? stationName;
@@ -13,49 +16,56 @@ class TrainArrivalScreen extends StatefulWidget {
 
 class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
   late String selectedStation;
-  int selectedTrainIndex = 1;
+  int selectedTrainIndex = 0;
   int _selectedNavIndex = 0;
 
-  final List<String> stations = ['강남역', '신도림역', '홍대입구역', '시청역'];
-
-  final List<TrainInfo> trains = [
-    TrainInfo(
-      lineNumber: 2,
-      lineColor: AppTheme.accentGreen,
-      direction: '성수행',
-      status: '환승 불가',
-      statusColor: AppTheme.accentRed,
-      arrivalTime: '2분 0초',
-      arrivalSeconds: 120,
-      isRecommended: false,
-    ),
-    TrainInfo(
-      lineNumber: 2,
-      lineColor: AppTheme.accentGreen,
-      direction: '성수행',
-      status: '여유 편성',
-      statusColor: AppTheme.accentGreen,
-      arrivalTime: '7분 30초',
-      arrivalSeconds: 450,
-      isRecommended: true,
-      recommendMessage: '4분 43초 뒤에 승강장에 열차가 도착합니다.',
-    ),
-    TrainInfo(
-      lineNumber: 2,
-      lineColor: AppTheme.accentGreen,
-      direction: '성수행',
-      status: '매우 혼잡',
-      statusColor: AppTheme.boardingWarning,
-      arrivalTime: '14분 0초',
-      arrivalSeconds: 840,
-      isRecommended: false,
-    ),
-  ];
+  // 실시간 데이터
+  List<TrainArrival> arrivals = [];
+  bool isLoading = true;
+  String? errorMessage;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    // 전달받은 역 이름 사용 (없으면 기본값)
     selectedStation = widget.stationName ?? '강남역';
+    _fetchArrivals();
+    // 30초마다 자동 새로고침
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _fetchArrivals();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchArrivals() async {
+    setState(() {
+      isLoading = arrivals.isEmpty;
+      errorMessage = null;
+    });
+
+    try {
+      final response = await ArrivalRepository.fetchArrivals(
+        stationName: selectedStation,
+      );
+      setState(() {
+        arrivals = response.arrivals;
+        isLoading = false;
+        if (selectedTrainIndex >= arrivals.length && arrivals.isNotEmpty) {
+          selectedTrainIndex = 0;
+        }
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+        errorMessage = e.toString();
+      });
+    }
   }
 
   @override
@@ -67,29 +77,31 @@ class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
           children: [
             _buildAppBar(),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 20),
-                    _buildLocationHeader(),
-                    const SizedBox(height: 12),
-                    _buildStationSelector(),
-                    const SizedBox(height: 20),
-                    _buildPaymentDetectedCard(),
-                    const SizedBox(height: 12),
-                    _buildEstimatedTimeCard(),
-                    const SizedBox(height: 24),
-                    _buildTrainListHeader(),
-                    const SizedBox(height: 12),
-                    _buildTrainList(),
-                    const SizedBox(height: 20),
-                    _buildStartGuidanceButton(),
-                    const SizedBox(height: 12),
-                    _buildSimulationButton(),
-                    const SizedBox(height: 20),
-                  ],
+              child: RefreshIndicator(
+                onRefresh: _fetchArrivals,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 20),
+                      _buildStationHeader(),
+                      const SizedBox(height: 20),
+                      _buildPaymentDetectedCard(),
+                      const SizedBox(height: 12),
+                      _buildEstimatedTimeCard(),
+                      const SizedBox(height: 24),
+                      _buildTrainListHeader(),
+                      const SizedBox(height: 12),
+                      _buildTrainContent(),
+                      const SizedBox(height: 20),
+                      _buildStartGuidanceButton(),
+                      const SizedBox(height: 12),
+                      _buildSimulationButton(),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -141,6 +153,10 @@ class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
           Row(
             children: [
               IconButton(
+                icon: Icon(Icons.refresh, color: Colors.grey[600]),
+                onPressed: _fetchArrivals,
+              ),
+              IconButton(
                 icon: Icon(Icons.notifications_outlined, color: Colors.grey[600]),
                 onPressed: () {},
               ),
@@ -155,54 +171,79 @@ class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
     );
   }
 
-  Widget _buildLocationHeader() {
-    return Row(
-      children: [
-        Icon(Icons.location_on, color: Colors.grey[500], size: 18),
-        const SizedBox(width: 6),
-        Text(
-          '현재 시뮬레이션 위치',
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey[600],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStationSelector() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: stations.map((station) {
-        final isSelected = selectedStation == station;
-        return GestureDetector(
-          onTap: () {
-            setState(() {
-              selectedStation = station;
-            });
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+  Widget _buildStationHeader() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              color: isSelected ? AppTheme.primaryColor : Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!,
-              ),
+              color: Colors.white.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
             ),
-            child: Text(
-              station,
-              style: TextStyle(
-                fontSize: 13,
-                color: isSelected ? Colors.white : Colors.grey[700],
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              ),
+            child: const Icon(
+              Icons.train,
+              color: Colors.white,
+              size: 28,
             ),
           ),
-        );
-      }).toList(),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  selectedStation,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '실시간 도착 정보',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.access_time,
+                  color: Colors.white.withValues(alpha: 0.9),
+                  size: 14,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${arrivals.length}개 열차',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.9),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -325,9 +366,79 @@ class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
     );
   }
 
+  Widget _buildTrainContent() {
+    if (isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (errorMessage != null) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.red[50],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red[400], size: 48),
+            const SizedBox(height: 12),
+            Text(
+              '도착 정보를 불러올 수 없습니다',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.red[700],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              errorMessage!,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.red[400],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _fetchArrivals,
+              child: const Text('다시 시도'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (arrivals.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          children: [
+            Icon(Icons.train, color: Colors.grey[300], size: 64),
+            const SizedBox(height: 16),
+            Text(
+              '현재 도착 예정인 열차가 없습니다',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[500],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return _buildTrainList();
+  }
+
   Widget _buildTrainList() {
     return Column(
-      children: trains.asMap().entries.map((entry) {
+      children: arrivals.asMap().entries.map((entry) {
         final index = entry.key;
         final train = entry.value;
         final isSelected = selectedTrainIndex == index;
@@ -366,16 +477,16 @@ class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: train.lineColor,
+                        color: train.lineColorValue,
                         shape: BoxShape.circle,
                       ),
                       child: Center(
                         child: Text(
-                          '${train.lineNumber}',
+                          train.lineNumber > 0 ? '${train.lineNumber}' : train.lineName[0],
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                            fontSize: 14,
                           ),
                         ),
                       ),
@@ -386,7 +497,7 @@ class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            train.direction,
+                            '${train.destination}행',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -406,12 +517,33 @@ class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                train.status,
+                                '${train.direction} · ${train.statusText}',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey[500],
                                 ),
                               ),
+                              if (train.isLastTrain) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red[100],
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    '막차',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.red[700],
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ],
@@ -421,7 +553,7 @@ class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          train.arrivalTime,
+                          train.formattedArrivalTime,
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -441,7 +573,7 @@ class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
                     ),
                   ],
                 ),
-                if (isSelected && train.isRecommended) ...[
+                if (isSelected && train.arrivalMessageDetail.isNotEmpty) ...[
                   const SizedBox(height: 14),
                   Container(
                     padding:
@@ -452,31 +584,14 @@ class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
                     ),
                     child: Row(
                       children: [
+                        Icon(Icons.info_outline, size: 16, color: Colors.grey[500]),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            train.recommendMessage!,
+                            train.arrivalMessageDetail,
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[600],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            '가장빠른 도착',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
                             ),
                           ),
                         ),
@@ -637,28 +752,4 @@ class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
       ),
     );
   }
-}
-
-class TrainInfo {
-  final int lineNumber;
-  final Color lineColor;
-  final String direction;
-  final String status;
-  final Color statusColor;
-  final String arrivalTime;
-  final int arrivalSeconds;
-  final bool isRecommended;
-  final String? recommendMessage;
-
-  TrainInfo({
-    required this.lineNumber,
-    required this.lineColor,
-    required this.direction,
-    required this.status,
-    required this.statusColor,
-    required this.arrivalTime,
-    required this.arrivalSeconds,
-    this.isRecommended = false,
-    this.recommendMessage,
-  });
 }
