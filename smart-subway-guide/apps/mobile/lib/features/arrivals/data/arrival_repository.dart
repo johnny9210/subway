@@ -2,14 +2,16 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../domain/arrival_model.dart';
+import 'station_names.dart';
 
 class ArrivalRepository {
   // 백엔드 URL (로컬 개발용)
   static const String _baseUrl = 'http://localhost:8001/api/v1';
 
-  /// 역 이름에서 "역" 접미사 제거 (API 호출용)
+  /// 역 이름을 Seoul Metro API 형식으로 변환
+  /// 예: "군자역 5호선" → "군자(능동)"
   static String _cleanStationName(String stationName) {
-    return stationName.replaceAll('역', '').trim();
+    return StationNames.normalize(stationName);
   }
 
   /// 특정 역의 실시간 열차 도착 정보 가져오기
