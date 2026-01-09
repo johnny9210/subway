@@ -18,12 +18,26 @@ class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
   late String selectedStation;
   int selectedTrainIndex = 0;
   int _selectedNavIndex = 0;
+  int _selectedDirection = 0; // 0: 전체, 1: 상행, 2: 하행
 
   // 실시간 데이터
   List<TrainArrival> arrivals = [];
   bool isLoading = true;
   String? errorMessage;
   Timer? _refreshTimer;
+
+  /// 선택된 방향에 따라 필터링된 열차 목록
+  List<TrainArrival> get filteredArrivals {
+    if (_selectedDirection == 0) return arrivals;
+    final directionFilter = _selectedDirection == 1 ? '상행' : '하행';
+    return arrivals.where((a) => a.direction == directionFilter).toList();
+  }
+
+  /// 상행 열차 수
+  int get upboundCount => arrivals.where((a) => a.direction == '상행').length;
+
+  /// 하행 열차 수
+  int get downboundCount => arrivals.where((a) => a.direction == '하행').length;
 
   @override
   void initState() {
@@ -351,18 +365,103 @@ class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
   }
 
   Widget _buildTrainListHeader() {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(Icons.access_time, color: Colors.grey[500], size: 18),
-        const SizedBox(width: 6),
-        Text(
-          '실시간 열차 현황',
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey[600],
+        Row(
+          children: [
+            Icon(Icons.access_time, color: Colors.grey[500], size: 18),
+            const SizedBox(width: 6),
+            Text(
+              '실시간 열차 현황',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildDirectionTabs(),
+      ],
+    );
+  }
+
+  Widget _buildDirectionTabs() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          _buildDirectionTab(0, '전체', arrivals.length),
+          _buildDirectionTab(1, '상행', upboundCount),
+          _buildDirectionTab(2, '하행', downboundCount),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDirectionTab(int index, String label, int count) {
+    final isSelected = _selectedDirection == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedDirection = index;
+            selectedTrainIndex = 0; // 탭 변경 시 선택 초기화
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected ? AppTheme.primaryColor : Colors.grey[600],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppTheme.primaryColor.withValues(alpha: 0.1)
+                      : Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? AppTheme.primaryColor : Colors.grey[500],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -433,12 +532,34 @@ class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
       );
     }
 
+    // 필터링된 결과가 없는 경우
+    if (filteredArrivals.isEmpty) {
+      final directionText = _selectedDirection == 1 ? '상행' : '하행';
+      return Container(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          children: [
+            Icon(Icons.train, color: Colors.grey[300], size: 64),
+            const SizedBox(height: 16),
+            Text(
+              '$directionText 열차가 없습니다',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[500],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return _buildTrainList();
   }
 
   Widget _buildTrainList() {
+    final displayArrivals = filteredArrivals;
     return Column(
-      children: arrivals.asMap().entries.map((entry) {
+      children: displayArrivals.asMap().entries.map((entry) {
         final index = entry.key;
         final train = entry.value;
         final isSelected = selectedTrainIndex == index;
