@@ -63,6 +63,30 @@ class TrainArrival {
     return '$seconds초';
   }
 
+  /// 도착 예정 시간 (예: "19:05")
+  String get estimatedArrivalTime {
+    if (arrivalSeconds <= 0) {
+      return '곧 도착';
+    }
+    final now = DateTime.now();
+    final arrivalTime = now.add(Duration(seconds: arrivalSeconds));
+    final hour = arrivalTime.hour.toString().padLeft(2, '0');
+    final minute = arrivalTime.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
+  /// 도착까지 남은 시간 + 예정 시간 (예: "3분 후 (19:05)")
+  String get arrivalTimeWithEstimate {
+    if (arrivalSeconds <= 0) {
+      return arrivalMessage.isNotEmpty ? arrivalMessage : '곧 도착';
+    }
+    final minutes = arrivalSeconds ~/ 60;
+    if (minutes > 0) {
+      return '$minutes분 후 ($estimatedArrivalTime)';
+    }
+    return '곧 도착 ($estimatedArrivalTime)';
+  }
+
   /// 호선 색상을 Color 객체로 변환
   Color get lineColorValue {
     try {

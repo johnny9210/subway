@@ -563,7 +563,9 @@ class _TrainArrivalScreenState extends State<TrainArrivalScreen> {
                           ),
                         ),
                         Text(
-                          '도착 예정',
+                          train.arrivalSeconds > 0
+                              ? '${train.estimatedArrivalTime} 도착'
+                              : '도착 예정',
                           style: TextStyle(
                             fontSize: 11,
                             color: Colors.grey[400],
